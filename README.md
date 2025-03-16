@@ -1,0 +1,1 @@
+Currently in progress, this project is meant to provide a website interface using Shiny for Python, allowing users to first identify their utility provider by zip code, and then based on that information see information about the origins and sources of their energy within a specified data range. 
