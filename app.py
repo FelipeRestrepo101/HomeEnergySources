@@ -8,8 +8,7 @@ from shiny.express import ui, input, render
 from shiny import reactive
 
 
-# data link
-#https://www.eia.gov/electricity/gridmonitor/dashboard/electric_overview/US48/US48 
+
 
 with ui.sidebar():
     ui.input_text_area("textarea", "Enter Zip Code (85318)", "")
@@ -29,17 +28,17 @@ with ui.sidebar():
     #     formatted_date2 = selected2.strftime("%Y-%m-%d")
     #     return formatted_date1, formatted_date2
 
-iou = pd.read_csv("iou_zipcodes_2023.csv")
-noniou = pd.read_csv("non_iou_zipcodes_2023.csv")
+iou = pd.read_csv("data/iou_zipcodes_2023.csv")
+noniou = pd.read_csv("data/non_iou_zipcodes_2023.csv")
 zip = pd.concat([noniou, iou], ignore_index=True)
 zip['zip'] = zip['zip'].astype(str)
  
 
-@render.data_frame
-def zipcode_df():
+@render.data_frame #Zipcode_df
+def Zipcode_df():
     # Dynamically query the DataFrame
-    result = zip.query(f"zip == '{input.textarea()}'")
-    return render.DataGrid(result)
+    QueryResult = zip.query(f"zip == '{input.textarea()}'")
+    return render.DataGrid(QueryResult)
 
 
 #Fetch data through API based on user specified date range
@@ -50,22 +49,14 @@ def fetch_api_data():
     formatted_date1 = selected1.strftime("%Y-%m-%d")
     formatted_date2 = selected2.strftime("%Y-%m-%d")
 
-
-#     url = "https://api.eia.gov/v2/electricity/rto/daily-fuel-type-data/data/?\
-# api_key=jKuhIenGf4YPfA88Y1VvFTLTBcXo6gYVCUOnNoFs&frequency=daily&data[0]=value&facets[timezone][]=Arizona&facets[respondent][]=AZPS&\
-# start=2025-01-01&end=2025-01-31&sort[0][column]=period&sort[0][direction]=asc&offset=0&length=5000"
-
+    #Dynamic URL (date range is dynamic, zip code and utility provider are not)
+    #possible idea is to find dataset from EIA containing 'eiaid' found in zipcodes dataset, and merging on the column
     url = f"https://api.eia.gov/v2/electricity/rto/daily-fuel-type-data/data/?\
 api_key=jKuhIenGf4YPfA88Y1VvFTLTBcXo6gYVCUOnNoFs&frequency=daily&data[0]=value&facets[timezone][]=Arizona&facets[respondent][]=AZPS&\
 start={formatted_date1}&end={formatted_date2}&sort[0][column]=period&sort[0][direction]=asc&offset=0&length=5000"
 
     response = requests.get(url)
 
-    # #no error handling
-    # data = response.json()
-    # return pd.DataFrame(data['response']['data'])
-
-    # error handling alternative
     if response.status_code == 200:
         data = response.json()
         return pd.DataFrame(data.get("response", {}).get("data", []))  # Ensure safe extraction
@@ -74,38 +65,40 @@ start={formatted_date1}&end={formatted_date2}&sort[0][column]=period&sort[0][dir
 
 
 #make datresult reactive in shiny framework so it is accesible between functions
-dateresult = reactive.value(None)
-
+PowerSource_df = reactive.value(None)
 
 
 @render.data_frame
-def date_result():
+def PowerSource_df_func():
     if input.date() is not None and len(input.date()) == 2:
-        dateresult.set(fetch_api_data())
-        return dateresult.get()
+        PowerSource_df.set(fetch_api_data()) #attached df to reactive PowerSource_df above, otherwise PowerSource_df_func().get() would have to be used, PowerSource_df_func().get() should
+        #still work if you wanted because it returns the reactive PowerSource_df in itself, but rather redundant for processing. 
+        return PowerSource_df.get()
     else: 
-        return pd.DateFrame()  # Return empty DataFrame if no dates selected
+        return pd.DataFrame()  # Return empty DataFrame if no dates selected
 
 
-# @reactive.Effect
-# def info():
-#     dateresult.get().info()
 
+#if else is necessary to avoid loading errors, making sure to wait until user has inputed date range first, and dataframe is created, before trying to
+# build the plot.
 @render.plot(width= 800, height=800, alt="A Seaborn histogram on penguin body mass in grams.")  
 def sum_plot():  
-
-    
     if (input.date() is not None and len(input.date()) == 2 and 
-        dateresult() is not None and not dateresult().empty):
-        dateframe = dateresult.get()
+        PowerSource_df.get() is not None and not PowerSource_df.get().empty):
+        PS_df = PowerSource_df.get()
+
+        #creates sum PowerSource_df containing a column that is a sum/total of all energy sources, previously used MWh filter which needs to be changed
         # dateframe['TotalEnergy'] = dateframe.filter(like='MWh').sum(axis=1)
         # sum = dateframe.sum(numeric_only=True).to_frame()
         # sum.reset_index(inplace=True)
 
-        dateframe['value']  = dateframe['value'].astype(int)
 
+        #convert 'value' column to int because all columns are string 'object' type by default
+        PS_df['value']  = PS_df['value'].astype(int)
+
+        #groups by 'type-name' such as Coal, Natural Gas, Nuclear, etc. and then sums up all numeric values in each grouping, which in this case is just the value column
         #loses all other column data because of .sum(numeric_only)
-        sum = dateframe.groupby('type-name').sum(numeric_only=True)#.to_frame()
+        sum = PS_df.groupby('type-name').sum(numeric_only=True)#.to_frame()
 
         # plt.figure(figsize=(4,4))
         graph = sns.barplot(sum, x='type-name', y='value', palette='flare', hue='type-name') 
