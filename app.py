@@ -18,7 +18,7 @@ with ui.sidebar():
     #     return input.textarea()
 
     ui.input_date_range("date", "Choose Date (1/1/2025)")
-    # used to inspect input component result.
+    # # used to inspect input component result.
     # @render.text
     # def datebox():
     #     # Cross-platform approach to format date without leading zeros
@@ -67,7 +67,7 @@ start={formatted_date1}&end={formatted_date2}&sort[0][column]=period&sort[0][dir
 
         if response.status_code == 200:
             data = response.json()
-            return pd.DataFrame(data.get("response", {}).get("data", []))  # Ensure safe extraction
+            return pd.DataFrame(data.get("response", {}).get("data", [])).drop(columns=['respondent-name'])  # Ensure safe extraction
         else:
             return pd.DataFrame({"Error": ["Failed to fetch data"]})  # Handle API failures
 

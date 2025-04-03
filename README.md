@@ -23,6 +23,7 @@ Example of utility provider website that did not work:
 https://www.arcgis.com/apps/InformationLookup/index.html?appid=db6e5122fa8245f78f3b4d7b3f474c62
 
 ideas: 
-add navbar for home page, and have zipcode box in navbar, once users enter zip code, they can navigate between different pages while giving each page access to the zip code.
+- navbar for home page, and have zipcode box in navbar, once users enter zip code, they can navigate between different pages while giving each page access to the zip code.
 For example, have the PowerSources page use zip code to identify utility provider and provide PowerSource, PowerDemand insights. 
 Then have HomeEnergyConsumption page use zip code to identify state, and provide average usage statistics on appliances. 
+- Use replace current input validation methods by using shiny-validate module
