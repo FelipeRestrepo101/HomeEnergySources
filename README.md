@@ -3,7 +3,7 @@ Currently in progress, this project is meant to provide a website interface usin
 
 ## Notes for self
 sources:
-- data link
+- EIA website
 https://www.eia.gov/electricity/gridmonitor/dashboard/electric_overview/US48/US48 
 
 - https://www.eia.gov/consumption/residential/data/2020/index.php?view=state#ce 
@@ -12,6 +12,11 @@ https://www.eia.gov/electricity/gridmonitor/dashboard/electric_overview/US48/US4
 - has more columns/appliances but is sorted by U.S. Regions
 https://www.eia.gov/consumption/residential/data/2020/c&e/pdf/ce5.3b.pdf 
 
+- zip codes (2023)
+https://catalog.data.gov/dataset/u-s-electric-utility-companies-and-rates-look-up-by-zipcode-2023/resource/8c63c38b-4d95-436b-9baf-83e650058571
+
+- EIA-861 Form which helps match balancing authority to eiaid
+https://www.eia.gov/electricity/data/eia861/ 
 
 
 Example of utility provider website that did not work:

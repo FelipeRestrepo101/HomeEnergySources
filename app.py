@@ -12,7 +12,7 @@ from shiny import reactive
 
 with ui.sidebar():
     ui.input_text_area("textarea", "Enter Zip Code (85318)", "")
-    #used to inspect input component result.
+    # # used to inspect input component result.
     # @render.text
     # def textbox():
     #     return input.textarea()
@@ -33,6 +33,12 @@ noniou = pd.read_csv("data/non_iou_zipcodes_2023.csv")
 zip = pd.concat([noniou, iou], ignore_index=True)
 zip['zip'] = zip['zip'].astype(str)
  
+ # EIA861 is the form from which the following excel file comes from, containing both 'eiaid' and 'BA ID' needed for merging
+EIA861 = pd.read_excel('data/Balancing_Authority_2023.xlsx')
+EIA861.rename(columns={'BA ID' : 'eiaid'}, inplace=True)
+EIA861 = EIA861[['eiaid', 'BA Code']]
+
+MergedZipcodes = pd.merge(zip, EIA861, on='eiaid', how='left')
 
 @render.data_frame #Zipcode_df
 def Zipcode_df():
@@ -44,24 +50,26 @@ def Zipcode_df():
 #Fetch data through API based on user specified date range
 @reactive.calc
 def fetch_api_data():
-    selected1 = input.date()[0]
-    selected2 = input.date()[1]
-    formatted_date1 = selected1.strftime("%Y-%m-%d")
-    formatted_date2 = selected2.strftime("%Y-%m-%d")
+    #if statement is needed for zip code input validation
+    if len(input.textarea()) > 4:
+        BalancingAuthority = MergedZipcodes.query(f"zip == '{input.textarea().strip()}'")['BA Code'].iat[0]
+        selected1 = input.date()[0]
+        selected2 = input.date()[1]
+        formatted_date1 = selected1.strftime("%Y-%m-%d")
+        formatted_date2 = selected2.strftime("%Y-%m-%d")
 
-    #Dynamic URL (date range is dynamic, zip code and utility provider are not)
-    #possible idea is to find dataset from EIA containing 'eiaid' found in zipcodes dataset, and merging on the column
-    url = f"https://api.eia.gov/v2/electricity/rto/daily-fuel-type-data/data/?\
-api_key=jKuhIenGf4YPfA88Y1VvFTLTBcXo6gYVCUOnNoFs&frequency=daily&data[0]=value&facets[timezone][]=Arizona&facets[respondent][]=AZPS&\
+        #Dynamic URL (balancing authority and date range are dynamic)
+        url = f"https://api.eia.gov/v2/electricity/rto/daily-fuel-type-data/data/?\
+api_key=jKuhIenGf4YPfA88Y1VvFTLTBcXo6gYVCUOnNoFs&frequency=daily&data[0]=value&facets[timezone][]=Arizona&facets[respondent][]={BalancingAuthority}&\
 start={formatted_date1}&end={formatted_date2}&sort[0][column]=period&sort[0][direction]=asc&offset=0&length=5000"
 
-    response = requests.get(url)
+        response = requests.get(url)
 
-    if response.status_code == 200:
-        data = response.json()
-        return pd.DataFrame(data.get("response", {}).get("data", []))  # Ensure safe extraction
-    else:
-        return pd.DataFrame({"Error": ["Failed to fetch data"]})  # Handle API failures
+        if response.status_code == 200:
+            data = response.json()
+            return pd.DataFrame(data.get("response", {}).get("data", []))  # Ensure safe extraction
+        else:
+            return pd.DataFrame({"Error": ["Failed to fetch data"]})  # Handle API failures
 
 
 #make datresult reactive in shiny framework so it is accesible between functions
