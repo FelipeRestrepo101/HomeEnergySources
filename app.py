@@ -138,8 +138,32 @@ start={formatted_date1}&end={formatted_date2}&sort[0][column]=period&sort[0][dir
             ax.set_axis_off()
             return fig
         
-BTU = 30
 
+    #Individual Power source trends   
+    ui.input_select(  
+    "SourceChoice",  
+    "View Power Source trends",  
+    {"Solar": "Solar", "Wind": "Wind", "Coal": "Coal", "Hydro": "Hydro", 
+     "Petroleum": "Petroleum", "Nuclear": "Nuclear", "Natural Gas": "Natural Gas" },  
+    )  
+
+    @render.plot(width= 800, height=800, alt="A Seaborn histogram on penguin body mass in grams.")  
+    def source_plot():  
+        if (input.date() is not None and len(input.date()) == 2 and 
+            PowerSource_df.get() is not None and not PowerSource_df.get().empty):
+            PS_df = PowerSource_df.get()
+            PS_df = PS_df.query(f'`type-name` == "{input.SourceChoice()}"').copy()
+            PS_df['value']  = PS_df['value'].astype(int)
+            PS_df['period'] = pd.to_datetime(PS_df['period'])
+
+            graph = sns.lineplot(PS_df, x='period', y='value') 
+            plt.xticks(rotation=90)
+            return graph
+
+
+
+
+BTU = 30
 with ui.nav_panel("Home Usage"):
     ui.input_checkbox_group(
         'Refrigerators',

@@ -3,10 +3,12 @@ Currently in progress, this project is meant to provide a website interface usin
 
 ## Notes for self
 sources:
-- EIA website
+- EIA website grid monitor
 https://www.eia.gov/electricity/gridmonitor/dashboard/electric_overview/US48/US48 
 
-- https://www.eia.gov/consumption/residential/data/2020/index.php?view=state#ce 
+
+- Ce5.3 data for average household energy consumption by state
+https://www.eia.gov/consumption/residential/data/2020/index.php?view=state#ce 
 --> https://www.eia.gov/consumption/residential/data/2020/state/pdf/ce5.3.st.pdf
 
 - has more columns/appliances but is sorted by U.S. Regions
@@ -19,7 +21,10 @@ https://catalog.data.gov/dataset/u-s-electric-utility-companies-and-rates-look-u
 https://www.eia.gov/electricity/data/eia861/ 
 
 
-Example of utility provider website that did not work:
+Additional Sources
+- show monthly weather history, proves PowerSource Trends in app graph specifically when looking at March solar.
+https://www.wunderground.com/calendar/us/az/phoenix/KPHX/date/2025-3
+- Example of utility provider website that did not work:
 https://www.arcgis.com/apps/InformationLookup/index.html?appid=db6e5122fa8245f78f3b4d7b3f474c62
 
 ideas: 
