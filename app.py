@@ -147,6 +147,14 @@ start={formatted_date1}&end={formatted_date2}&sort[0][column]=period&sort[0][dir
      "Petroleum": "Petroleum", "Nuclear": "Nuclear", "Natural Gas": "Natural Gas" },  
     )  
 
+    ui.input_slider(
+     "Smooth",
+     "Change rolling window (Smooth out lineplot)",
+     min=1,
+     max=365,
+     value=1
+    )
+
     @render.plot(width= 800, height=800, alt="A Seaborn histogram on penguin body mass in grams.")  
     def source_plot():  
         if (input.date() is not None and len(input.date()) == 2 and 
@@ -155,6 +163,7 @@ start={formatted_date1}&end={formatted_date2}&sort[0][column]=period&sort[0][dir
             PS_df = PS_df.query(f'`type-name` == "{input.SourceChoice()}"').copy()
             PS_df['value']  = PS_df['value'].astype(int)
             PS_df['period'] = pd.to_datetime(PS_df['period'])
+            PS_df['value'] = PS_df['value'].rolling(window=input.Smooth(), center=True, min_periods=1).mean()
 
             graph = sns.lineplot(PS_df, x='period', y='value') 
             plt.xticks(rotation=90)
