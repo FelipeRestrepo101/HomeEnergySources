@@ -84,27 +84,12 @@ start={formatted_date1}&end={formatted_date2}&sort[0][column]=period&sort[0][dir
         
 
 
-    #make datresult reactive in shiny framework so it is accesible between functions
-    PowerSource_df = reactive.value(None)
-
-
-    @render.data_frame
-    def PowerSource_df_func():
-        try:
-            PowerSource_df.set(fetch_api_data()) #attached df to reactive PowerSource_df above, otherwise PowerSource_df_func().get() would have to be used, PowerSource_df_func().get() should
-            #still work if you wanted because it returns the reactive PowerSource_df in itself, but rather redundant for processing. 
-            return PowerSource_df.get()
-        except Exception as e: 
-            return pd.DataFrame()  # Return empty DataFrame if no dates selected
-
-
-
     #if else is necessary to avoid loading errors, making sure to wait until user has inputed date range first, and dataframe is created, before trying to
     # build the plot.
     @render.plot(width= 800, height=800, alt="A Seaborn histogram on penguin body mass in grams.")  
     def sum_plot():  
         try:
-            PS_df = PowerSource_df.get()
+            PS_df = fetch_api_data()
 
             #creates sum PowerSource_df containing a column that is a sum/total of all energy sources, previously used MWh filter which needs to be changed
             # dateframe['TotalEnergy'] = dateframe.filter(like='MWh').sum(axis=1)
@@ -162,7 +147,7 @@ start={formatted_date1}&end={formatted_date2}&sort[0][column]=period&sort[0][dir
     @render.plot(width= 800, height=800, alt="A Seaborn histogram on penguin body mass in grams.")  
     def source_plot():  
         try:
-            PS_df = PowerSource_df.get()
+            PS_df = fetch_api_data()
             PS_df = PS_df.query(f'`type-name` == "{input.SourceChoice()}"').copy()
             PS_df['value']  = PS_df['value'].astype(int)
             PS_df['period'] = pd.to_datetime(PS_df['period'])
