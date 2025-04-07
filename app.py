@@ -17,6 +17,8 @@ ui.page_opts(
 )
 
 with ui.nav_panel("Power Sources"):
+
+    
 # with ui.sidebar():
     ui.input_text_area("textarea", "Enter Zip Code (85318)", "")
     # # used to inspect input component result.
@@ -168,6 +170,45 @@ start={formatted_date1}&end={formatted_date2}&sort[0][column]=period&sort[0][dir
             graph = sns.lineplot(PS_df, x='period', y='value') 
             plt.xticks(rotation=90)
             return graph
+        
+    @render.plot(width= 800, height=800, alt="A Seaborn histogram on penguin body mass in grams.")  
+    def demand_plot():  
+    #Balancing Authority Demand
+        BalancingAuthority = MergedZipcodes.query(f"zip == '{input.textarea().strip()}'")['BA Code'].iat[0]
+        selected1 = input.date()[0]
+        selected2 = input.date()[1]
+        formatted_date1 = selected1.strftime("%Y-%m-%d")
+        formatted_date2 = selected2.strftime("%Y-%m-%d")
+
+        url = "https://api.eia.gov/v2/electricity/rto/daily-region-data/data/"
+        # Parameters (including API key)
+        params = {
+            "api_key": "jKuhIenGf4YPfA88Y1VvFTLTBcXo6gYVCUOnNoFs",
+            "frequency": "daily",
+            "data[0]": "value",
+            "facets[respondent][]": f"{BalancingAuthority}",
+            "facets[timezone][]": "Arizona",
+            "facets[type][]": "D",
+            "start": f"{formatted_date1}",
+            "end": f"{formatted_date2}",
+            "sort[0][column]": "period",
+            "sort[0][direction]": "desc",
+            "offset": 0,
+            "length": 5000
+        }
+
+        response = requests.get(url, params=params)
+        data = response.json()
+        df = pd.DataFrame(data['response']['data'])
+        df['value']  = df['value'].astype(int)
+        df['period'] = pd.to_datetime(df['period'])
+
+        graph = sns.lineplot(df, x='period', y='value')
+        plt.title('Demand')
+        plt.xticks(rotation=90) 
+
+
+        return graph
 
 
 
