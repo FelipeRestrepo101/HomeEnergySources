@@ -9,8 +9,7 @@ from shiny.express import ui, input, render
 from shiny.ui import page_navbar
 from shiny import reactive
 
-
-
+#used for navbar
 ui.page_opts(
     title="YourPowerGrid",  
     page_fn=partial(page_navbar, id="page", bg='#ff6600'),  
@@ -60,7 +59,7 @@ with ui.nav_panel("Power Sources"):
     @reactive.calc
     def fetch_api_data():
         #if statement is needed for zip code input validation
-        if len(input.textarea()) > 4:
+        try:
             BalancingAuthority = MergedZipcodes.query(f"zip == '{input.textarea().strip()}'")['BA Code'].iat[0]
             selected1 = input.date()[0]
             selected2 = input.date()[1]
@@ -79,6 +78,10 @@ start={formatted_date1}&end={formatted_date2}&sort[0][column]=period&sort[0][dir
                 return pd.DataFrame(data.get("response", {}).get("data", [])).drop(columns=['respondent-name'])  # Ensure safe extraction
             else:
                 return pd.DataFrame({"Error": ["Failed to fetch data"]})  # Handle API failures
+        
+        except Exception as e:
+            return pd.DataFrame({"Error": ["Failed to fetch data"]})  # Handle API failures
+        
 
 
     #make datresult reactive in shiny framework so it is accesible between functions
@@ -87,11 +90,11 @@ start={formatted_date1}&end={formatted_date2}&sort[0][column]=period&sort[0][dir
 
     @render.data_frame
     def PowerSource_df_func():
-        if input.date() is not None and len(input.date()) == 2:
+        try:
             PowerSource_df.set(fetch_api_data()) #attached df to reactive PowerSource_df above, otherwise PowerSource_df_func().get() would have to be used, PowerSource_df_func().get() should
             #still work if you wanted because it returns the reactive PowerSource_df in itself, but rather redundant for processing. 
             return PowerSource_df.get()
-        else: 
+        except Exception as e: 
             return pd.DataFrame()  # Return empty DataFrame if no dates selected
 
 
@@ -100,8 +103,7 @@ start={formatted_date1}&end={formatted_date2}&sort[0][column]=period&sort[0][dir
     # build the plot.
     @render.plot(width= 800, height=800, alt="A Seaborn histogram on penguin body mass in grams.")  
     def sum_plot():  
-        if (input.date() is not None and len(input.date()) == 2 and 
-            PowerSource_df.get() is not None and not PowerSource_df.get().empty):
+        try:
             PS_df = PowerSource_df.get()
 
             #creates sum PowerSource_df containing a column that is a sum/total of all energy sources, previously used MWh filter which needs to be changed
@@ -131,7 +133,7 @@ start={formatted_date1}&end={formatted_date2}&sort[0][column]=period&sort[0][dir
             plt.xticks(rotation=90)
             return graph
         
-        else: 
+        except Exception as e: 
             fig, ax = plt.subplots()
             ax.text(0.5, 0.5, 
                     "No data available\nPlease select valid dates", 
@@ -159,8 +161,7 @@ start={formatted_date1}&end={formatted_date2}&sort[0][column]=period&sort[0][dir
 
     @render.plot(width= 800, height=800, alt="A Seaborn histogram on penguin body mass in grams.")  
     def source_plot():  
-        if (input.date() is not None and len(input.date()) == 2 and 
-            PowerSource_df.get() is not None and not PowerSource_df.get().empty):
+        try:
             PS_df = PowerSource_df.get()
             PS_df = PS_df.query(f'`type-name` == "{input.SourceChoice()}"').copy()
             PS_df['value']  = PS_df['value'].astype(int)
@@ -170,46 +171,63 @@ start={formatted_date1}&end={formatted_date2}&sort[0][column]=period&sort[0][dir
             graph = sns.lineplot(PS_df, x='period', y='value') 
             plt.xticks(rotation=90)
             return graph
-        
+        except Exception as e:
+            fig, ax = plt.subplots()
+            ax.text(0.5, 0.5, 
+                    "No data available\nPlease select valid dates", 
+                    ha='center', 
+                    va='center')
+            ax.set_axis_off()
+            return fig
+
+      
+    #Balancing Authority Demand  
     @render.plot(width= 800, height=800, alt="A Seaborn histogram on penguin body mass in grams.")  
     def demand_plot():  
-    #Balancing Authority Demand
-        BalancingAuthority = MergedZipcodes.query(f"zip == '{input.textarea().strip()}'")['BA Code'].iat[0]
-        selected1 = input.date()[0]
-        selected2 = input.date()[1]
-        formatted_date1 = selected1.strftime("%Y-%m-%d")
-        formatted_date2 = selected2.strftime("%Y-%m-%d")
+        try: 
+            BalancingAuthority = MergedZipcodes.query(f"zip == '{input.textarea().strip()}'")['BA Code'].iat[0]
+            selected1 = input.date()[0]
+            selected2 = input.date()[1]
+            formatted_date1 = selected1.strftime("%Y-%m-%d")
+            formatted_date2 = selected2.strftime("%Y-%m-%d")
 
-        url = "https://api.eia.gov/v2/electricity/rto/daily-region-data/data/"
-        # Parameters (including API key)
-        params = {
-            "api_key": "jKuhIenGf4YPfA88Y1VvFTLTBcXo6gYVCUOnNoFs",
-            "frequency": "daily",
-            "data[0]": "value",
-            "facets[respondent][]": f"{BalancingAuthority}",
-            "facets[timezone][]": "Arizona",
-            "facets[type][]": "D",
-            "start": f"{formatted_date1}",
-            "end": f"{formatted_date2}",
-            "sort[0][column]": "period",
-            "sort[0][direction]": "desc",
-            "offset": 0,
-            "length": 5000
-        }
+            url = "https://api.eia.gov/v2/electricity/rto/daily-region-data/data/"
+            # Parameters (including API key)
+            params = {
+                "api_key": "jKuhIenGf4YPfA88Y1VvFTLTBcXo6gYVCUOnNoFs",
+                "frequency": "daily",
+                "data[0]": "value",
+                "facets[respondent][]": f"{BalancingAuthority}",
+                "facets[timezone][]": "Arizona",
+                "facets[type][]": "D",
+                "start": f"{formatted_date1}",
+                "end": f"{formatted_date2}",
+                "sort[0][column]": "period",
+                "sort[0][direction]": "desc",
+                "offset": 0,
+                "length": 5000
+            }
 
-        response = requests.get(url, params=params)
-        data = response.json()
-        df = pd.DataFrame(data['response']['data'])
-        df['value']  = df['value'].astype(int)
-        df['period'] = pd.to_datetime(df['period'])
+            response = requests.get(url, params=params)
+            data = response.json()
+            df = pd.DataFrame(data['response']['data'])
+            df['value']  = df['value'].astype(int)
+            df['period'] = pd.to_datetime(df['period'])
 
-        graph = sns.lineplot(df, x='period', y='value')
-        plt.title('Demand')
-        plt.xticks(rotation=90) 
+            graph = sns.lineplot(df, x='period', y='value')
+            plt.title('Demand')
+            plt.xticks(rotation=90) 
 
 
-        return graph
-
+            return graph
+        except Exception as e:
+            fig, ax = plt.subplots()
+            ax.text(0.5, 0.5, 
+                    "No data available\nPlease select valid dates", 
+                    ha='center', 
+                    va='center')
+            ax.set_axis_off()
+            return fig
 
 
 
