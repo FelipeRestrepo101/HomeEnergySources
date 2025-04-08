@@ -17,24 +17,9 @@ ui.page_opts(
 
 with ui.nav_panel("Power Sources"):
 
-    
-# with ui.sidebar():
     ui.input_text_area("textarea", "Enter Zip Code (85318)", "")
-    # # used to inspect input component result.
-    # @render.text
-    # def textbox():
-    #     return input.textarea()
-
     ui.input_date_range("date", "Choose Date (1/1/2025)")
-    # # used to inspect input component result.
-    # @render.text
-    # def datebox():
-    #     # Cross-platform approach to format date without leading zeros
-    #     selected1 = input.date()[0]
-    #     selected2 = input.date()[1]
-    #     formatted_date1 = selected1.strftime("%Y-%m-%d")
-    #     formatted_date2 = selected2.strftime("%Y-%m-%d")
-    #     return formatted_date1, formatted_date2
+
 
     iou = pd.read_csv("data/iou_zipcodes_2023.csv")
     noniou = pd.read_csv("data/non_iou_zipcodes_2023.csv")
@@ -48,6 +33,53 @@ with ui.nav_panel("Power Sources"):
 
     MergedZipcodes = pd.merge(zip, EIA861, on='eiaid', how='left')
 
+
+
+    
+    # Alternative 1: place variables in global environment:
+    # BalancingAuthority = MergedZipcodes.query(f"zip == '{input.textarea().strip()}'")['BA Code'].iat[0]
+    # selected1 = input.date()[0]
+    # selected2 = input.date()[1]
+    # formatted_date1 = selected1.strftime("%Y-%m-%d")
+    # formatted_date2 = selected2.strftime("%Y-%m-%d")
+
+    # Issue: variables are not reactive
+
+    
+    # Alternative 2: place variable in reactive components:
+    # @reactive.calc
+    # def get_URL_inputs():
+    # BalancingAuthority = MergedZipcodes.query(f"zip == '{input.textarea().strip()}'")['BA Code'].iat[0]
+    # selected1 = input.date()[0]
+    # selected2 = input.date()[1]
+    # formatted_date1 = selected1.strftime("%Y-%m-%d")
+    # formatted_date2 = selected2.strftime("%Y-%m-%d")
+
+    # Issue: variable are not global, and function can only return one value. Also 
+    # reactive components are executed every time a dependency within changes, however doesnt account for invalid input such as same start and end date leading to error.
+    
+
+    #Solution: Return dictionary and add try or if blocks to attempt and execute reactive components, and return None if failed, then use try and if block in function accessing 
+    # component to check if component returns None or not.
+    @reactive.calc
+    def get_URL_inputs():
+        try: 
+            BalancingAuthority = MergedZipcodes.query(f"zip == '{input.textarea().strip()}'")['BA Code'].iat[0]
+            selected1 = input.date()[0]
+            selected2 = input.date()[1]
+            formatted_date1 = selected1.strftime("%Y-%m-%d")
+            formatted_date2 = selected2.strftime("%Y-%m-%d")
+
+            return {
+                "BalancingAuthority": BalancingAuthority,
+                "formatted_date1": formatted_date1,
+                "formatted_date2": formatted_date2
+            }
+
+        except Exception as e:
+            return None
+
+
     @render.data_frame #Zipcode_df
     def Zipcode_df():
         # Dynamically query the DataFrame
@@ -58,18 +90,11 @@ with ui.nav_panel("Power Sources"):
     #Fetch data through API based on user specified date range
     @reactive.calc
     def fetch_api_data():
-        #if statement is needed for zip code input validation
         try:
-            BalancingAuthority = MergedZipcodes.query(f"zip == '{input.textarea().strip()}'")['BA Code'].iat[0]
-            selected1 = input.date()[0]
-            selected2 = input.date()[1]
-            formatted_date1 = selected1.strftime("%Y-%m-%d")
-            formatted_date2 = selected2.strftime("%Y-%m-%d")
-
             #Dynamic URL (balancing authority and date range are dynamic)
             url = f"https://api.eia.gov/v2/electricity/rto/daily-fuel-type-data/data/?\
-api_key=jKuhIenGf4YPfA88Y1VvFTLTBcXo6gYVCUOnNoFs&frequency=daily&data[0]=value&facets[timezone][]=Arizona&facets[respondent][]={BalancingAuthority}&\
-start={formatted_date1}&end={formatted_date2}&sort[0][column]=period&sort[0][direction]=asc&offset=0&length=5000"
+api_key=jKuhIenGf4YPfA88Y1VvFTLTBcXo6gYVCUOnNoFs&frequency=daily&data[0]=value&facets[timezone][]=Arizona&facets[respondent][]={get_URL_inputs()['BalancingAuthority']}&\
+start={get_URL_inputs()['formatted_date1']}&end={get_URL_inputs()['formatted_date2']}&sort[0][column]=period&sort[0][direction]=asc&offset=0&length=5000"
 
             response = requests.get(url)
 
@@ -170,11 +195,6 @@ start={formatted_date1}&end={formatted_date2}&sort[0][column]=period&sort[0][dir
     @render.plot(width= 800, height=800, alt="A Seaborn histogram on penguin body mass in grams.")  
     def demand_plot():  
         try: 
-            BalancingAuthority = MergedZipcodes.query(f"zip == '{input.textarea().strip()}'")['BA Code'].iat[0]
-            selected1 = input.date()[0]
-            selected2 = input.date()[1]
-            formatted_date1 = selected1.strftime("%Y-%m-%d")
-            formatted_date2 = selected2.strftime("%Y-%m-%d")
 
             url = "https://api.eia.gov/v2/electricity/rto/daily-region-data/data/"
             # Parameters (including API key)
@@ -182,11 +202,11 @@ start={formatted_date1}&end={formatted_date2}&sort[0][column]=period&sort[0][dir
                 "api_key": "jKuhIenGf4YPfA88Y1VvFTLTBcXo6gYVCUOnNoFs",
                 "frequency": "daily",
                 "data[0]": "value",
-                "facets[respondent][]": f"{BalancingAuthority}",
+                "facets[respondent][]": f"{get_URL_inputs()['BalancingAuthority']}",
                 "facets[timezone][]": "Arizona",
                 "facets[type][]": "D",
-                "start": f"{formatted_date1}",
-                "end": f"{formatted_date2}",
+                "start": f"{get_URL_inputs()['formatted_date1']}",
+                "end": f"{get_URL_inputs()['formatted_date2']}",
                 "sort[0][column]": "period",
                 "sort[0][direction]": "desc",
                 "offset": 0,
