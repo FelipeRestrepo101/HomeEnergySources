@@ -1,0 +1,8 @@
+- add average plot next to totals plot
+
+- fix long label in totals plot
+
+- add two date range selectors, one for daily data, and one for monthly with suggestions on using one or the other for data below or above 2 years.
+
+- add plot that shows predicted demand or predicted use of a specific power source
+    - can add textboxes showing max or mins during the date range specified. 

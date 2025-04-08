@@ -16,8 +16,12 @@ ui.page_opts(
 )
 
 with ui.nav_panel("Power Sources"):
-    ui.input_text_area("textarea", "Enter Zip Code (85318)", "")
-    ui.input_date_range("date", "Choose Date (1/1/2025)")
+
+    with ui.layout_column_wrap():
+        with ui.card():    
+            ui.input_text_area("textarea", "Enter Zip Code (85318)", "")
+        with ui.card():
+            ui.input_date_range("date", "Choose Date (1/1/2025)")
 
     iou = pd.read_csv("data/iou_zipcodes_2023.csv")
     noniou = pd.read_csv("data/non_iou_zipcodes_2023.csv")
@@ -112,86 +116,92 @@ with ui.nav_panel("Power Sources"):
     
 
 
-    #Zipcode_df
-    @render.data_frame 
-    def Zipcode_df():
-        # Dynamically query the DataFrame
-        QueryResult = zip.query(f"zip == '{input.textarea()}'")
-        return render.DataGrid(QueryResult)
+    with ui.card():
+        #Zipcode_df
+        @render.data_frame 
+        def Zipcode_df():
+            # Dynamically query the DataFrame
+            QueryResult = zip.query(f"zip == '{input.textarea()}'")
+            return render.DataGrid(QueryResult)
 
 
 
     #if else is necessary to avoid loading errors, making sure to wait until user has inputed date range first, and dataframe is created, before trying to
     # build the plot.
-    @render.plot(width= 800, height=800, alt="A Seaborn histogram on penguin body mass in grams.")  
-    def power_sources_sum_plot():  
-        try:
-            df = fetch_power_source_data()
-            #convert 'value' column to int because all columns are string 'object' type by default
-            df['value']  = df['value'].astype(int)
+        with ui.card():
+            @render.plot(width= 800, height=800, alt="A Seaborn histogram on penguin body mass in grams.")  
+            def power_sources_sum_plot():  
+                try:
+                    df = fetch_power_source_data()
+                    #convert 'value' column to int because all columns are string 'object' type by default
+                    df['value']  = df['value'].astype(int)
 
-            #groups by 'type-name' such as Coal, Natural Gas, Nuclear, etc. and then sums up all numeric values in each grouping, which in this case is just the value column
-            #loses all other column data because of .sum(numeric_only)
-            df = df.groupby('type-name').sum(numeric_only=True)#.to_frame()
+                    #groups by 'type-name' such as Coal, Natural Gas, Nuclear, etc. and then sums up all numeric values in each grouping, which in this case is just the value column
+                    #loses all other column data because of .sum(numeric_only)
+                    df = df.groupby('type-name').sum(numeric_only=True)#.to_frame()
 
-            # plt.figure(figsize=(4,4))
-            graph = sns.barplot(df, x='type-name', y='value', palette='flare', hue='type-name') 
-            graph.set_title("Energy Totals")
-            graph.set_xlabel("Power Source")
-            graph.set_ylabel("Count")
-            plt.gcf().axes[0].yaxis.get_major_formatter().set_scientific(False)
-            plt.xticks(rotation=90)
-            return graph
+                    # plt.figure(figsize=(4,4))
+                    graph = sns.barplot(df, x='type-name', y='value', palette='flare', hue='type-name') 
+                    graph.set_title("Energy Totals")
+                    graph.set_xlabel("Power Source")
+                    graph.set_ylabel("Count")
+                    plt.gcf().axes[0].yaxis.get_major_formatter().set_scientific(False)
+                    plt.xticks(rotation=90)
+                    return graph
+                
+                except Exception as e: 
+                    fig, ax = plt.subplots()
+                    ax.text(0.5, 0.5, 
+                            "No data available\nPlease select valid dates", 
+                            ha='center', 
+                            va='center')
+                    ax.set_axis_off()
+                    return fig
         
-        except Exception as e: 
-            fig, ax = plt.subplots()
-            ax.text(0.5, 0.5, 
-                    "No data available\nPlease select valid dates", 
-                    ha='center', 
-                    va='center')
-            ax.set_axis_off()
-            return fig
-        
+
+    with ui.card():
+        with ui.layout_columns(col_widths=(5, 7)):
+            with ui.layout_sidebar():
+                with ui.sidebar(width=500, padding=50, bg='#f2f2f2'):               
+                    #Individual Power source trends   
+                    ui.input_select(  
+                    "SourceChoice",  
+                    "View Power Source trends",  
+                    {"Solar": "Solar", "Wind": "Wind", "Coal": "Coal", "Hydro": "Hydro", 
+                    "Petroleum": "Petroleum", "Nuclear": "Nuclear", "Natural Gas": "Natural Gas" },  
+                    )  
+                    ui.input_slider(
+                    "Smooth",
+                    "Change rolling window (Smooth out lineplot)",
+                    min=1,
+                    max=365,
+                    value=1
+                    )
 
 
-    #Individual Power source trends   
-    ui.input_select(  
-    "SourceChoice",  
-    "View Power Source trends",  
-    {"Solar": "Solar", "Wind": "Wind", "Coal": "Coal", "Hydro": "Hydro", 
-     "Petroleum": "Petroleum", "Nuclear": "Nuclear", "Natural Gas": "Natural Gas" },  
-    )  
-    ui.input_slider(
-     "Smooth",
-     "Change rolling window (Smooth out lineplot)",
-     min=1,
-     max=365,
-     value=1
-    )
+            
+            @render.plot(width= 800, height=800, alt="A Seaborn histogram on penguin body mass in grams.")  
+            def single_power_source_plot():  
+                try:
+                    df = fetch_power_source_data()
+                    df = df.query(f'`type-name` == "{input.SourceChoice()}"').copy()
+                    df['value']  = df['value'].astype(int)
+                    df['period'] = pd.to_datetime(df['period'])
+                    df['value'] = df['value'].rolling(window=input.Smooth(), center=True, min_periods=1).mean()
 
-
-
-    @render.plot(width= 800, height=800, alt="A Seaborn histogram on penguin body mass in grams.")  
-    def single_power_source_plot():  
-        try:
-            df = fetch_power_source_data()
-            df = df.query(f'`type-name` == "{input.SourceChoice()}"').copy()
-            df['value']  = df['value'].astype(int)
-            df['period'] = pd.to_datetime(df['period'])
-            df['value'] = df['value'].rolling(window=input.Smooth(), center=True, min_periods=1).mean()
-
-            graph = sns.lineplot(df, x='period', y='value') 
-            plt.xticks(rotation=90)
-            return graph
-        
-        except Exception as e:
-            fig, ax = plt.subplots()
-            ax.text(0.5, 0.5, 
-                    "No data available\nPlease select valid dates", 
-                    ha='center', 
-                    va='center')
-            ax.set_axis_off()
-            return fig
+                    graph = sns.lineplot(df, x='period', y='value') 
+                    plt.xticks(rotation=90)
+                    # plt.tight_layout()
+                    return graph
+                
+                except Exception as e:
+                    fig, ax = plt.subplots()
+                    ax.text(0.5, 0.5, 
+                            "No data available\nPlease select valid dates", 
+                            ha='center', 
+                            va='center')
+                    ax.set_axis_off()
+                    return fig
 
 
       
@@ -218,10 +228,5 @@ with ui.nav_panel("Power Sources"):
             return fig
 
 
-
-
-
-
-        
     
     
