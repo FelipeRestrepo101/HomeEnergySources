@@ -19,9 +19,9 @@ with ui.nav_panel("Power Sources"):
 
     with ui.layout_column_wrap():
         with ui.card():    
-            ui.input_text_area("textarea", "Enter Zip Code (85318)", "")
+            ui.input_text_area("textarea", "Enter Zip Code (85318)", value="85302")
         with ui.card():
-            ui.input_date_range("date", "Choose Date (1/1/2025)")
+            ui.input_date_range("date", "Choose Date (1/1/2025)", start='2025-03-01', end='2025-04-01')
 
     iou = pd.read_csv("data/iou_zipcodes_2023.csv")
     noniou = pd.read_csv("data/non_iou_zipcodes_2023.csv")
@@ -128,8 +128,10 @@ with ui.nav_panel("Power Sources"):
 
     #if else is necessary to avoid loading errors, making sure to wait until user has inputed date range first, and dataframe is created, before trying to
     # build the plot.
-        with ui.card():
-            @render.plot(width= 800, height=800, alt="A Seaborn histogram on penguin body mass in grams.")  
+    with ui.card():
+        with ui.layout_columns(min_height=800):
+            # @render.plot(width= 800, height=800, alt="A Seaborn histogram on penguin body mass in grams.")  
+            @render.plot()
             def power_sources_sum_plot():  
                 try:
                     df = fetch_power_source_data()
@@ -157,7 +159,57 @@ with ui.nav_panel("Power Sources"):
                             va='center')
                     ax.set_axis_off()
                     return fig
-        
+                
+            @render.data_frame
+            def power_sources_sum_grid():
+                try:
+                    df = fetch_power_source_data()
+                    df['value']  = df['value'].astype(int)
+                    df = df.groupby('type-name')[['value']].sum().reset_index()
+                    return df
+                except Exception as e: 
+                    return pd.DataFrame()  # Return empty DataFrame if no dates selected
+                
+
+
+        with ui.layout_columns(min_height=800):
+            @render.plot()
+            def power_sources_avg_plot():
+                try:
+                    df = fetch_power_source_data()
+                    df['value'] = df['value'].astype(int)
+
+                    df = df.groupby('type-name').mean(numeric_only=True)
+
+                    graph = sns.barplot(df, x='type-name', y='value', palette='flare', hue='type-name')
+                    graph.set_title("Energy Avg")
+                    graph.set_xlabel("Power Source Avg")
+                    graph.set_ylabel("Count")
+                    plt.gcf().axes[0].yaxis.get_major_formatter().set_scientific(False)
+                    plt.xticks(rotation=90)
+                    return graph
+
+                except Exception as e:
+                    fig, ax = plt.subplots()
+                    ax.text(0.5, 0.5, 
+                            "No data available\nPlease select valid dates", 
+                            ha='center', 
+                            va='center')
+                    ax.set_axis_off()
+                    return fig
+
+
+            @render.data_frame
+            def power_sources_avg_grid():
+                try:
+                    df = fetch_power_source_data()
+                    df['value']  = df['value'].astype(int)
+                    df = df.groupby('type-name')[['value']].mean().reset_index()
+                    return df
+                except Exception as e: 
+                    return pd.DataFrame()  # Return empty DataFrame if no dates selected
+
+            
 
     with ui.card():
         with ui.layout_columns(col_widths=(5, 7)):
@@ -205,27 +257,29 @@ with ui.nav_panel("Power Sources"):
 
 
       
-    #Balancing Authority Demand  
-    @render.plot(width= 800, height=800, alt="A Seaborn histogram on penguin body mass in grams.")  
-    def demand_plot():  
-        try: 
-            df = fetch_demand_data()
-            df['value']  = df['value'].astype(int)
-            df['period'] = pd.to_datetime(df['period'])
+    #Balancing Authority Demand 
+    with ui.card(): 
+        @render.plot(width= 800, height=800, alt="A Seaborn histogram on penguin body mass in grams.")  
+        def demand_plot():  
+            try: 
+                df = fetch_demand_data()
+                df['value']  = df['value'].astype(int)
+                df['period'] = pd.to_datetime(df['period'])
 
-            graph = sns.lineplot(df, x='period', y='value')
-            plt.title('Demand')
-            plt.xticks(rotation=90) 
-            return graph
-        
-        except Exception as e:
-            fig, ax = plt.subplots()
-            ax.text(0.5, 0.5, 
-                    "No data available\nPlease select valid dates", 
-                    ha='center', 
-                    va='center')
-            ax.set_axis_off()
-            return fig
+                graph = sns.lineplot(df, x='period', y='value')
+                plt.title('Demand')
+                plt.xticks(rotation=90) 
+                return graph
+            
+            except Exception as e:
+                fig, ax = plt.subplots()
+                ax.text(0.5, 0.5, 
+                        "No data available\nPlease select valid dates", 
+                        ha='center', 
+                        va='center')
+                ax.set_axis_off()
+                return fig
+
 
 
     

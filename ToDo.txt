@@ -1,4 +1,4 @@
-- add average plot next to totals plot
+- add power source stat chart, next to the plots
 
 - fix long label in totals plot
 
