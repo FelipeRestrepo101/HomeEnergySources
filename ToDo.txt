@@ -6,3 +6,6 @@
 
 - add plot that shows predicted demand or predicted use of a specific power source
     - can add textboxes showing max or mins during the date range specified. 
+
+- Add a feature that lets users put how much energy they used in a certain amount of time example: 40Kw, over 2 hours so 80kw total. 
+Then based on the input calculate based on Utility provider, and average source production around that date, how much Co2 emission that action caused. 

@@ -21,6 +21,11 @@ with ui.nav_panel("Power Sources"):
         with ui.card():    
             ui.input_text_area("textarea", "Enter Zip Code (85318)", value="85302")
         with ui.card():
+            ui.input_select(  
+                    "FrequencyInput",  
+                    "Data frequency",  
+                    {"daily": "Daily", "Monthly": "monthly"},  
+                    )  
             ui.input_date_range("date", "Choose Date (1/1/2025)", start='2025-03-01', end='2025-04-01')
 
     iou = pd.read_csv("data/iou_zipcodes_2023.csv")
@@ -64,7 +69,7 @@ with ui.nav_panel("Power Sources"):
             url = "https://api.eia.gov/v2/electricity/rto/daily-fuel-type-data/data/"
             params = {
                 "api_key": "jKuhIenGf4YPfA88Y1VvFTLTBcXo6gYVCUOnNoFs",
-                "frequency": "daily",
+                "frequency": input.FrequencyInput(),
                 "data[0]": "value",
                 "facets[timezone][]": "Arizona",
                 "facets[respondent][]": get_URL_inputs()['BalancingAuthority'],
@@ -183,7 +188,7 @@ with ui.nav_panel("Power Sources"):
 
                     graph = sns.barplot(df, x='type-name', y='value', palette='flare', hue='type-name')
                     graph.set_title("Energy Avg")
-                    graph.set_xlabel("Power Source Avg")
+                    graph.set_xlabel("Power Source Avg") 
                     graph.set_ylabel("Count")
                     plt.gcf().axes[0].yaxis.get_major_formatter().set_scientific(False)
                     plt.xticks(rotation=90)
