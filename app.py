@@ -20,9 +20,9 @@ with ui.nav_panel("Power Sources"):
 
     with ui.layout_column_wrap():
         with ui.card():    
-            ui.input_text_area("textarea", "Enter Zip Code (85318)", value="85302")
+            ui.input_text_area("textarea", "Enter Zip Code (eg. 85302)", value="85302")
         with ui.card():
-            ui.input_date_range("date", "Choose Date (1/1/2025)", start='2025-03-01', end='2025-04-01')
+            ui.input_date_range("date", "Choose Date (eg. 1/1/2025)", start='2025-03-01', end='2025-04-01')
 
     iou = pd.read_csv("data/iou_zipcodes_2023.csv")
     noniou = pd.read_csv("data/non_iou_zipcodes_2023.csv")
@@ -146,9 +146,9 @@ with ui.nav_panel("Power Sources"):
 
                     # plt.figure(figsize=(4,4))
                     graph = sns.barplot(df, x='type-name', y='value', palette='flare', hue='type-name') 
-                    graph.set_title("Energy Totals")
+                    graph.set_title("Energy Production Totals")
                     graph.set_xlabel("Power Source")
-                    graph.set_ylabel("Count in MWh")
+                    graph.set_ylabel("MWh")
                     plt.gcf().axes[0].yaxis.set_major_formatter(ticker.StrMethodFormatter('{x:,.0f}')) #puts commans in big numbers
                     # plt.gcf().axes[0].yaxis.get_major_formatter().set_scientific(True)
                     plt.xticks(rotation=90)
@@ -188,9 +188,9 @@ with ui.nav_panel("Power Sources"):
                     df.index = df.index.str.replace('Solar with integrated battery storage', 'Solar with integrated\nbattery storage')
 
                     graph = sns.barplot(df, x='type-name', y='value', palette='flare', hue='type-name')
-                    graph.set_title("Energy Avg")
+                    graph.set_title("Energy Production Daily Avg")
                     graph.set_xlabel("Power Source Avg") 
-                    graph.set_ylabel("Count in MWh")
+                    graph.set_ylabel("MWh")
                     plt.gcf().axes[0].yaxis.set_major_formatter(ticker.StrMethodFormatter('{x:,.0f}')) #puts commans in big numbers
                     # plt.gcf().axes[0].yaxis.get_major_formatter().set_scientific(False)
                     plt.xticks(rotation=90)
@@ -227,7 +227,7 @@ with ui.nav_panel("Power Sources"):
                     #Individual Power source trends   
                     ui.input_select(  
                     "SourceChoice",  
-                    "View Power Source trends",  
+                    "View Power Source Trends",  
                     {"Solar": "Solar", "Wind": "Wind", "Coal": "Coal", "Hydro": "Hydro", 
                     "Petroleum": "Petroleum", "Nuclear": "Nuclear", "Natural Gas": "Natural Gas" },  
                     )  
@@ -250,8 +250,11 @@ with ui.nav_panel("Power Sources"):
                     df['period'] = pd.to_datetime(df['period'])
                     df['value'] = df['value'].rolling(window=input.Smooth(), center=True, min_periods=1).mean()
 
-                    graph = sns.lineplot(df, x='period', y='value') 
+                    graph = sns.lineplot(df, x='period', y='value')
+                    graph.set_ylabel('Mwh')
+                    plt.title(f"{input.SourceChoice()} Production Trends Over Time")
                     plt.xticks(rotation=90)
+                    plt.gcf().axes[0].yaxis.set_major_formatter(ticker.StrMethodFormatter('{x:,.0f}')) #puts commans in big numbers
                     # plt.tight_layout()
                     return graph
                 
@@ -266,7 +269,7 @@ with ui.nav_panel("Power Sources"):
 
 
       
-    #Balancing Authority Demand 
+    #Average Daily Demand by balancing authority
     with ui.card(): 
         @render.plot(width= 800, height=800, alt="A Seaborn histogram on penguin body mass in grams.")  
         def demand_plot():  
@@ -276,8 +279,10 @@ with ui.nav_panel("Power Sources"):
                 df['period'] = pd.to_datetime(df['period'])
 
                 graph = sns.lineplot(df, x='period', y='value')
-                plt.title('Demand')
+                graph.set_ylabel('MWh')
+                plt.title('Daily Energy Demand')
                 plt.xticks(rotation=90) 
+                plt.gcf().axes[0].yaxis.set_major_formatter(ticker.StrMethodFormatter('{x:,.0f}')) #puts commans in big numbers
                 return graph
             
             except Exception as e:
