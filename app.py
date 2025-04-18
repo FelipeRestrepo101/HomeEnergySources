@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
 import requests
 from functools import partial
 from shiny.express import ui, input, render
@@ -21,11 +22,6 @@ with ui.nav_panel("Power Sources"):
         with ui.card():    
             ui.input_text_area("textarea", "Enter Zip Code (85318)", value="85302")
         with ui.card():
-            ui.input_select(  
-                    "FrequencyInput",  
-                    "Data frequency",  
-                    {"daily": "Daily", "Monthly": "monthly"},  
-                    )  
             ui.input_date_range("date", "Choose Date (1/1/2025)", start='2025-03-01', end='2025-04-01')
 
     iou = pd.read_csv("data/iou_zipcodes_2023.csv")
@@ -69,7 +65,7 @@ with ui.nav_panel("Power Sources"):
             url = "https://api.eia.gov/v2/electricity/rto/daily-fuel-type-data/data/"
             params = {
                 "api_key": "jKuhIenGf4YPfA88Y1VvFTLTBcXo6gYVCUOnNoFs",
-                "frequency": input.FrequencyInput(),
+                "frequency": "daily",
                 "data[0]": "value",
                 "facets[timezone][]": "Arizona",
                 "facets[respondent][]": get_URL_inputs()['BalancingAuthority'],
@@ -131,7 +127,7 @@ with ui.nav_panel("Power Sources"):
 
 
 
-    #if else is necessary to avoid loading errors, making sure to wait until user has inputed date range first, and dataframe is created, before trying to
+    #try except is necessary to avoid loading errors, making sure to wait until user has inputed date range first, and dataframe is created, before trying to
     # build the plot.
     with ui.card():
         with ui.layout_columns(min_height=800):
@@ -146,13 +142,15 @@ with ui.nav_panel("Power Sources"):
                     #groups by 'type-name' such as Coal, Natural Gas, Nuclear, etc. and then sums up all numeric values in each grouping, which in this case is just the value column
                     #loses all other column data because of .sum(numeric_only)
                     df = df.groupby('type-name').sum(numeric_only=True)#.to_frame()
+                    df.index = df.index.str.replace('Solar with integrated battery storage', 'Solar with integrated\nbattery storage')
 
                     # plt.figure(figsize=(4,4))
                     graph = sns.barplot(df, x='type-name', y='value', palette='flare', hue='type-name') 
                     graph.set_title("Energy Totals")
                     graph.set_xlabel("Power Source")
-                    graph.set_ylabel("Count")
-                    plt.gcf().axes[0].yaxis.get_major_formatter().set_scientific(False)
+                    graph.set_ylabel("Count in MWh")
+                    plt.gcf().axes[0].yaxis.set_major_formatter(ticker.StrMethodFormatter('{x:,.0f}')) #puts commans in big numbers
+                    # plt.gcf().axes[0].yaxis.get_major_formatter().set_scientific(True)
                     plt.xticks(rotation=90)
                     return graph
                 
@@ -171,6 +169,9 @@ with ui.nav_panel("Power Sources"):
                     df = fetch_power_source_data()
                     df['value']  = df['value'].astype(int)
                     df = df.groupby('type-name')[['value']].sum().reset_index()
+                    df.rename(columns={'value': 'MegaWatt-hours'}, inplace=True)
+                    df['MegaWatt-hours'] = df['MegaWatt-hours'].apply('{:,}'.format)
+            
                     return df
                 except Exception as e: 
                     return pd.DataFrame()  # Return empty DataFrame if no dates selected
@@ -183,14 +184,15 @@ with ui.nav_panel("Power Sources"):
                 try:
                     df = fetch_power_source_data()
                     df['value'] = df['value'].astype(int)
-
                     df = df.groupby('type-name').mean(numeric_only=True)
+                    df.index = df.index.str.replace('Solar with integrated battery storage', 'Solar with integrated\nbattery storage')
 
                     graph = sns.barplot(df, x='type-name', y='value', palette='flare', hue='type-name')
                     graph.set_title("Energy Avg")
                     graph.set_xlabel("Power Source Avg") 
-                    graph.set_ylabel("Count")
-                    plt.gcf().axes[0].yaxis.get_major_formatter().set_scientific(False)
+                    graph.set_ylabel("Count in MWh")
+                    plt.gcf().axes[0].yaxis.set_major_formatter(ticker.StrMethodFormatter('{x:,.0f}')) #puts commans in big numbers
+                    # plt.gcf().axes[0].yaxis.get_major_formatter().set_scientific(False)
                     plt.xticks(rotation=90)
                     return graph
 
@@ -210,6 +212,8 @@ with ui.nav_panel("Power Sources"):
                     df = fetch_power_source_data()
                     df['value']  = df['value'].astype(int)
                     df = df.groupby('type-name')[['value']].mean().reset_index()
+                    df.rename(columns={'value': 'MegaWatt-hours'}, inplace=True)
+                    df['MegaWatt-hours'] = df['MegaWatt-hours'].apply('{:,.0f}'.format) #puts commas and rounds decimal
                     return df
                 except Exception as e: 
                     return pd.DataFrame()  # Return empty DataFrame if no dates selected
@@ -285,7 +289,6 @@ with ui.nav_panel("Power Sources"):
                 ax.set_axis_off()
                 return fig
 
-
-
-    
+    with ui.card():
+        ui.card_header('Predictions')
     
