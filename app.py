@@ -117,6 +117,32 @@ with ui.nav_panel("Power Sources"):
     
 
 
+    @reactive.calc
+    def fetch_hourly_demand_data():
+        try:
+            url = "https://api.eia.gov/v2/electricity/rto/region-data/data/"
+            params = {
+                "api_key": "jKuhIenGf4YPfA88Y1VvFTLTBcXo6gYVCUOnNoFs",
+                "frequency": "hourly",
+                "data[0]": "value",
+                "facets[respondent][]": f"{get_URL_inputs()['BalancingAuthority']}",
+                "facets[type][]": "D",
+                "start": f"{get_URL_inputs()['formatted_date1']}T00",
+                "end": f"{get_URL_inputs()['formatted_date2']}T00",
+                "sort[0][column]": "period",
+                "sort[0][direction]": "desc",
+                "offset": 0,
+                "length": 5000
+            }
+            response = requests.get(url, params=params)
+            if response.status_code == 200:
+                data = response.json()
+                return pd.DataFrame(data.get("response", {}).get("data", []))
+            else:
+                return pd.DataFrame({"Error": ["Failed to fetch data"]})
+        except Exception as e:
+            return pd.DataFrame({"Error": ["Failed to fetch data"]})
+
     with ui.card():
         #Zipcode_df
         @render.data_frame 
@@ -281,6 +307,31 @@ with ui.nav_panel("Power Sources"):
                 graph = sns.lineplot(df, x='period', y='value')
                 graph.set_ylabel('MWh')
                 plt.title('Daily Energy Demand')
+                plt.xticks(rotation=90) 
+                plt.gcf().axes[0].yaxis.set_major_formatter(ticker.StrMethodFormatter('{x:,.0f}')) #puts commans in big numbers
+                return graph
+            
+            except Exception as e:
+                fig, ax = plt.subplots()
+                ax.text(0.5, 0.5, 
+                        "No data available\nPlease select valid dates", 
+                        ha='center', 
+                        va='center')
+                ax.set_axis_off()
+                return fig
+            
+    with ui.card(): 
+        @render.plot(width= 800, height=800, alt="A Seaborn histogram on penguin body mass in grams.")  
+        def hourly_demand_plot():  
+            try: 
+                df = fetch_hourly_demand_data()
+                df['value']  = df['value'].astype(int)
+                df['period'] = pd.to_datetime(df['period'])
+                df = df.groupby(df['period'].dt.hour)[['value']].mean()
+
+                graph = sns.lineplot(df, x='period', y='value')
+                graph.set_ylabel('MWh')
+                plt.title('Hourly Energy Demand')
                 plt.xticks(rotation=90) 
                 plt.gcf().axes[0].yaxis.set_major_formatter(ticker.StrMethodFormatter('{x:,.0f}')) #puts commans in big numbers
                 return graph

@@ -1,6 +1,7 @@
-- add power source stat chart, next to the plots
 
-- fix long label in totals plot
+- add hourly demand average
+
+- email eia about possibility of getting first of the month balancing authority source production data through API
 
 - add two date range selectors, one for daily data, and one for monthly with suggestions on using one or the other for data below or above 2 years.
 
