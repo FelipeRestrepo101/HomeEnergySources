@@ -5,6 +5,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import requests
+import time
 from functools import partial
 from shiny.express import ui, input, render
 from shiny.ui import page_navbar
@@ -85,7 +86,62 @@ with ui.nav_panel("Power Sources"):
         
         except Exception as e:
             return pd.DataFrame({"Error": ["Failed to fetch data"]})  # Handle API failures
-
+        
+    @reactive.calc
+    def fetch_monthly_power_source_data():
+        try:
+            inputs = get_URL_inputs()
+            start_date = pd.to_datetime(inputs['formatted_date1'])
+            end_date = pd.to_datetime(inputs['formatted_date2'])
+            
+            # Generate all first days of months in range
+            monthly_dates = pd.date_range(
+                start_date.replace(day=1),
+                end_date.replace(day=1),
+                freq='MS'
+            ).strftime('%Y-%m-%d').tolist()
+            
+            url = "https://api.eia.gov/v2/electricity/rto/daily-fuel-type-data/data/"
+            params = {
+                "api_key": "jKuhIenGf4YPfA88Y1VvFTLTBcXo6gYVCUOnNoFs",
+                "frequency": "daily",
+                "data[0]": "value",
+                "facets[timezone][]": "Arizona",
+                "facets[respondent][]": inputs['BalancingAuthority'],
+                "start": monthly_dates[0],  # First day of first month
+                "end": monthly_dates[-1],   # First day of last month
+                "sort[0][column]": "period",
+                "sort[0][direction]": "asc",
+                "offset": 0,
+                "length": 5000
+            }
+            
+            all_data = []
+            while True:
+                response = requests.get(url, params=params)
+                if response.status_code != 200:
+                    break
+                    
+                data = response.json().get("response", {}).get("data", [])
+                
+                # Filter for first day of month and drop respondent-name
+                filtered = [
+                    {k: v for k, v in d.items() if k != 'respondent-name'} 
+                    for d in data 
+                    if d.get('period') in monthly_dates
+                ]
+                all_data.extend(filtered)
+                
+                if len(data) < params['length']:
+                    break  # Reached end of data
+                    
+                params['offset'] += params['length']
+                time.sleep(0.5)  # Rate limiting
+            
+            return pd.DataFrame(all_data) if all_data else pd.DataFrame({"Error": ["No data found"]})
+        
+        except Exception as e:
+            return pd.DataFrame({"Error": [f"Failed to fetch data: {str(e)}"]})
 
 
     @reactive.calc
@@ -150,6 +206,8 @@ with ui.nav_panel("Power Sources"):
             # Dynamically query the DataFrame
             QueryResult = zip.query(f"zip == '{input.textarea()}'")
             return render.DataGrid(QueryResult)
+        
+    
 
 
 
@@ -348,3 +406,11 @@ with ui.nav_panel("Power Sources"):
     with ui.card():
         ui.card_header('Predictions')
     
+
+    # @render.data_frame
+    # def monthly():
+    #     try:
+    #         df = fetch_monthly_power_source_data()
+    #         return df
+    #     except Exception as e: 
+    #         return pd.DataFrame()  # Return empty DataFrame if no dates selected
