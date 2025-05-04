@@ -1,11 +1,16 @@
 import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
 import numpy as np
 import pandas as pd
 import seaborn as sns
-import matplotlib.pyplot as plt
-import matplotlib.ticker as ticker
+
+from sklearn.metrics import mean_squared_error
+from sklearn.model_selection import train_test_split
+from xgboost import XGBRegressor
+
 import requests
 import time
+from datetime import date
 from functools import partial
 from shiny.express import ui, input, render
 from shiny.ui import page_navbar
@@ -87,62 +92,6 @@ with ui.nav_panel("Power Sources"):
         except Exception as e:
             return pd.DataFrame({"Error": ["Failed to fetch data"]})  # Handle API failures
         
-    @reactive.calc
-    def fetch_monthly_power_source_data():
-        try:
-            inputs = get_URL_inputs()
-            start_date = pd.to_datetime(inputs['formatted_date1'])
-            end_date = pd.to_datetime(inputs['formatted_date2'])
-            
-            # Generate all first days of months in range
-            monthly_dates = pd.date_range(
-                start_date.replace(day=1),
-                end_date.replace(day=1),
-                freq='MS'
-            ).strftime('%Y-%m-%d').tolist()
-            
-            url = "https://api.eia.gov/v2/electricity/rto/daily-fuel-type-data/data/"
-            params = {
-                "api_key": "jKuhIenGf4YPfA88Y1VvFTLTBcXo6gYVCUOnNoFs",
-                "frequency": "daily",
-                "data[0]": "value",
-                "facets[timezone][]": "Arizona",
-                "facets[respondent][]": inputs['BalancingAuthority'],
-                "start": monthly_dates[0],  # First day of first month
-                "end": monthly_dates[-1],   # First day of last month
-                "sort[0][column]": "period",
-                "sort[0][direction]": "asc",
-                "offset": 0,
-                "length": 5000
-            }
-            
-            all_data = []
-            while True:
-                response = requests.get(url, params=params)
-                if response.status_code != 200:
-                    break
-                    
-                data = response.json().get("response", {}).get("data", [])
-                
-                # Filter for first day of month and drop respondent-name
-                filtered = [
-                    {k: v for k, v in d.items() if k != 'respondent-name'} 
-                    for d in data 
-                    if d.get('period') in monthly_dates
-                ]
-                all_data.extend(filtered)
-                
-                if len(data) < params['length']:
-                    break  # Reached end of data
-                    
-                params['offset'] += params['length']
-                time.sleep(0.5)  # Rate limiting
-            
-            return pd.DataFrame(all_data) if all_data else pd.DataFrame({"Error": ["No data found"]})
-        
-        except Exception as e:
-            return pd.DataFrame({"Error": [f"Failed to fetch data: {str(e)}"]})
-
 
     @reactive.calc
     def fetch_demand_data():
@@ -198,6 +147,94 @@ with ui.nav_panel("Power Sources"):
                 return pd.DataFrame({"Error": ["Failed to fetch data"]})
         except Exception as e:
             return pd.DataFrame({"Error": ["Failed to fetch data"]})
+        
+
+
+    @reactive.calc
+    def fetch_all_PowerData():
+        try:
+            df_list = []
+            year = 2019
+
+            while year < 2026:
+                url = "https://api.eia.gov/v2/electricity/rto/daily-fuel-type-data/data/"
+                params = {
+                    "api_key": "jKuhIenGf4YPfA88Y1VvFTLTBcXo6gYVCUOnNoFs",
+                    "frequency": "daily",     
+                    "data[0]": "value",
+                    "facets[timezone][]": "Arizona",
+                    "facets[respondent][]": "AZPS", #replace AZPS with environment variable in shiny project
+                    "start": f"{year}-01-01",
+                    "end": f"{year}-12-31",
+                    "sort[0][column]": "period",
+                    "sort[0][direction]": "asc",
+                    "offset": 0,
+                    "length": 5000
+                }
+                response = requests.get(url, params=params)
+                if response.status_code == 200:
+                    data = response.json()  # Parse JSON response
+                    df = pd.DataFrame(data['response']['data'])
+                    df_list.append(df)
+
+                    year += 1
+                else:
+                    print(f"Failed to fetch data: {response.status_code}")
+                    print(response.text)
+                    exit()
+
+            df = pd.concat(df_list, ignore_index=True)
+            
+
+            df.rename(columns={'period' : 'date'}, inplace=True)
+            df['date'] = pd.to_datetime(df['date'])
+            df['value'] = df['value'].astype(int)
+
+
+            df.set_index('date', inplace=True)
+
+            return df
+        except Exception as e:
+            return pd.DataFrame({"Error": ["Failed to fetch data"]})
+
+    @reactive.calc
+    def fetch_all_DemandData():
+        try:
+            url = "https://api.eia.gov/v2/electricity/rto/daily-region-data/data/"
+            # Parameters (including API key)
+            params = {
+                "api_key": "jKuhIenGf4YPfA88Y1VvFTLTBcXo6gYVCUOnNoFs",
+                "frequency": "daily",
+                "data[0]": "value",
+                "facets[respondent][]": "AZPS",
+                "facets[type][]": "D",
+                "facets[timezone][]": "Arizona",
+                "sort[0][column]": "period",
+                "sort[0][direction]": "asc",
+                "offset": 0,
+                "length": 5000
+            }
+            response = requests.get(url, params=params)
+            if response.status_code == 200:
+                data = response.json()  # Parse JSON response
+                print('yasss')
+            else:
+                print(f"Failed to fetch data: {response.status_code}")
+                print(response.text)
+                exit()
+
+            df = pd.DataFrame(data['response']['data'])
+
+            df.rename(columns={'period' : 'date'}, inplace=True)
+            df['date'] = pd.to_datetime(df['date'])
+            df['value'] = df['value'].astype(int)
+
+            df.set_index('date', inplace=True)
+
+            return df
+        except Exception as e:
+            return pd.DataFrame({"Error": ["Failed to fetch data"]})
+
 
     with ui.card():
         #Zipcode_df
@@ -405,12 +442,341 @@ with ui.nav_panel("Power Sources"):
 
     with ui.card():
         ui.card_header('Predictions')
+        with ui.layout_columns(col_widths=(5, 7)):
     
+            # #dataframe to test all_date calc component
+            # @render.data_frame
+            # def all_DemandData():
+            #     try:
+            #         df = fetch_all_DemandData()
+            #         return df
+            #     except Exception as e: 
+            #         return pd.DataFrame()  # Return empty DataFrame if no dates selected
 
-    # @render.data_frame
-    # def monthly():
-    #     try:
-    #         df = fetch_monthly_power_source_data()
-    #         return df
-    #     except Exception as e: 
-    #         return pd.DataFrame()  # Return empty DataFrame if no dates selected
+            with ui.layout_sidebar():
+                with ui.sidebar(width=500, padding=50, bg='#f2f2f2'):               
+                    #Individual Power source trends   
+                    ui.input_select(  
+                    "PredictedSourceChoice",  
+                    "View Power Source Trends",  
+                    {"Solar": "Solar", "Wind": "Wind", "Coal": "Coal", "Hydro": "Hydro", 
+                    "Petroleum": "Petroleum", "Nuclear": "Nuclear", "Natural Gas": "Natural Gas" },  
+                    )  
+
+            
+            @render.plot(width= 800, height=800, alt="A Seaborn histogram on penguin body mass in grams.")  
+            def solar_comprehensive():  
+                try:
+                    df = fetch_all_PowerData()
+                    df = df.query(f'`type-name` == "{input.PredictedSourceChoice()}"').copy()[['value']].copy()
+                
+                    df['dayofweek'] = df.index.dayofweek
+                    df['quarter'] = df.index.quarter
+                    df['month'] = df.index.month
+                    df['year'] = df.index.year
+                    df['dayofyear'] = df.index.dayofyear
+                    df['dayofmonth'] = df.index.day
+                    df['weekofyear'] = df.index.isocalendar().week
+
+                    # Lag features
+                    df['sales_lag1'] = df['value'].shift(1)
+                    df['sales_lag7'] = df['value'].shift(7)
+                    df['sales_lag30'] = df['value'].shift(30)
+                    df['sales_lag365'] = df['value'].shift(365)
+
+                    # Rolling window features
+                    df['sales_rolling_mean7'] = df['value'].shift(1).rolling(window=7).mean()
+                    df['sales_rolling_std7'] = df['value'].shift(1).rolling(window=7).std()
+
+                    test_size = 5
+                    train = df.iloc[:-test_size]
+                    test = df.iloc[-test_size:]
+
+                    features = ['dayofweek', 'quarter', 'month', 'year', 
+                    'dayofyear', 'dayofmonth', 'weekofyear',
+                    'sales_lag1', 'sales_lag7', 'sales_lag30', 'sales_lag365',
+                    'sales_rolling_mean7', 'sales_rolling_std7']
+                    target = 'value'
+
+                    x_train = train[features]
+                    y_train = train[target]
+                    x_test = test[features]
+                    y_test = test[target]
+
+                    model = XGBRegressor(
+                    n_estimators=100,
+                    learning_rate=0.1,
+                    max_depth=3,
+                    subsample=0.8,
+                    colsample_bytree=0.8,
+                    early_stopping_rounds=50,
+                    random_state=42
+                    )
+
+                    model.fit(
+                    x_train, y_train,
+                    eval_set=[(x_train, y_train), (x_test, y_test)],
+                    verbose=1000
+                    )
+
+                    test = test.copy() 
+                    test['prediction']= model.predict(x_test)
+                    df = df.merge(test[['prediction']], how='left', left_index=True, right_index=True)
+
+                    
+
+                    def forecast_future(model, last_known_data, features, target, future_steps):
+                        """
+                        Improved version with proper feature name handling
+                        """
+                        # Create DataFrame with proper feature names
+                        future_df = pd.DataFrame(columns=features + [target])
+                        future_df.loc[0] = last_known_data
+                        
+                        # Generate future dates
+                        last_date = last_known_data.name
+                        future_dates = pd.date_range(
+                            start=last_date + pd.Timedelta(days=1),
+                            periods=future_steps
+                        )
+                        
+                        # Recursive forecasting
+                        for i in range(1, future_steps + 1):
+                            temp = future_df.iloc[i-1][features].copy().to_frame().T
+                            
+                            # Ensure we maintain feature names
+                            temp = temp[features]  # Keep only features in correct order
+                            
+                            # Update temporal features
+                            current_date = future_dates[i-1]
+                            temp['dayofweek'] = current_date.dayofweek
+                            temp['quarter'] = current_date.quarter
+                            temp['month'] = current_date.month
+                            temp['year'] = current_date.year
+                            temp['dayofyear'] = current_date.dayofyear
+                            temp['dayofmonth'] = current_date.day
+                            temp['weekofyear'] = current_date.isocalendar().week
+
+                            
+                            # Update lag features
+                            if i >= 1:
+                                temp['sales_lag1'] = future_df.iloc[i-1][target]
+                            if i >= 7:
+                                temp['sales_lag7'] = future_df.iloc[i-7][target]
+                            if i >= 30:
+                                temp['sales_lag30'] = future_df.iloc[i-30][target]
+                            if i >= 365:
+                                temp['sales_lag365'] = future_df.iloc[i-365][target]
+
+
+                                
+                            # # Update rolling features
+                            # if i >= 7:
+                            #     window = future_df.iloc[max(0,i-7):i][target]
+                            #     temp['sales_rolling_mean7'] = window.mean()
+                            #     temp['sales_rolling_std7'] = window.std()
+                            
+                            # Make prediction (now with proper feature names)
+                            temp[target] = model.predict(temp)[0]
+                            
+                            # Store prediction
+                            future_df.loc[i] = temp.iloc[0]
+                            future_df.index = [last_date] + list(future_dates[:i])
+                        
+                        return future_df.iloc[1:]
+                    
+                    # Get the last known data point (ensuring we have all features)
+                    last_known = df[features + [target]].iloc[-1].copy()
+
+                    # Generate future forecasts
+                    future_forecast = forecast_future(
+                        model=model,
+                        last_known_data=last_known,
+                        features=features,
+                        target=target,
+                        future_steps=1096
+                    )
+
+                    # Create figure explicitly
+                    fig, ax = plt.subplots(figsize=(20, 5))
+
+
+                    # Plot results
+                    ax.plot(df.index, df[target], label='Historical Data')
+                    ax.plot(test.index, test['prediction'], 'g.', label='Test Predictions')
+                    ax.plot(future_forecast.index, future_forecast[target], 'r--', label='Future Forecast')
+                    
+                    # Format plot
+                    # ax.set_title(f"{input.PredictedSourceChioce()} Energy Production Forecast")
+                    ax.legend()
+                    ax.grid(True)
+                    
+                    # Return the figure
+                    return fig
+                
+                except Exception as e:
+                    fig, ax = plt.subplots()
+                    ax.text(0.5, 0.5, 
+                            "No data available\nPlease select valid dates", 
+                            ha='center', 
+                            va='center')
+                    ax.set_axis_off()
+                    return fig
+                
+            @render.plot(width= 800, height=800, alt="A Seaborn histogram on penguin body mass in grams.")  
+            def demand_comprehensive():  
+                try:
+                    df = fetch_all_DemandData()
+                
+                    df['dayofweek'] = df.index.dayofweek
+                    df['quarter'] = df.index.quarter
+                    df['month'] = df.index.month
+                    df['year'] = df.index.year
+                    df['dayofyear'] = df.index.dayofyear
+                    df['dayofmonth'] = df.index.day
+                    df['weekofyear'] = df.index.isocalendar().week
+
+                    # Lag features
+                    df['sales_lag1'] = df['value'].shift(1)
+                    df['sales_lag7'] = df['value'].shift(7)
+                    df['sales_lag30'] = df['value'].shift(30)
+                    df['sales_lag365'] = df['value'].shift(365)
+
+                    # Rolling window features
+                    df['sales_rolling_mean7'] = df['value'].shift(1).rolling(window=7).mean()
+                    df['sales_rolling_std7'] = df['value'].shift(1).rolling(window=7).std()
+
+                    test_size = 5
+                    train = df.iloc[:-test_size]
+                    test = df.iloc[-test_size:]
+
+                    features = ['dayofweek', 'quarter', 'month', 'year', 
+                    'dayofyear', 'dayofmonth', 'weekofyear',
+                    'sales_lag1', 'sales_lag7', 'sales_lag30', 'sales_lag365',
+                    'sales_rolling_mean7', 'sales_rolling_std7']
+                    target = 'value'
+
+                    x_train = train[features]
+                    y_train = train[target]
+                    x_test = test[features]
+                    y_test = test[target]
+
+                    model = XGBRegressor(
+                    n_estimators=100,
+                    learning_rate=0.1,
+                    max_depth=3,
+                    subsample=0.8,
+                    colsample_bytree=0.8,
+                    early_stopping_rounds=50,
+                    random_state=42
+                    )
+
+                    model.fit(
+                    x_train, y_train,
+                    eval_set=[(x_train, y_train), (x_test, y_test)],
+                    verbose=1000
+                    )
+
+                    test = test.copy() 
+                    test['prediction']= model.predict(x_test)
+                    df = df.merge(test[['prediction']], how='left', left_index=True, right_index=True)
+
+                    
+
+                    def forecast_future(model, last_known_data, features, target, future_steps):
+                        """
+                        Improved version with proper feature name handling
+                        """
+                        # Create DataFrame with proper feature names
+                        future_df = pd.DataFrame(columns=features + [target])
+                        future_df.loc[0] = last_known_data
+                        
+                        # Generate future dates
+                        last_date = last_known_data.name
+                        future_dates = pd.date_range(
+                            start=last_date + pd.Timedelta(days=1),
+                            periods=future_steps
+                        )
+                        
+                        # Recursive forecasting
+                        for i in range(1, future_steps + 1):
+                            temp = future_df.iloc[i-1][features].copy().to_frame().T
+                            
+                            # Ensure we maintain feature names
+                            temp = temp[features]  # Keep only features in correct order
+                            
+                            # Update temporal features
+                            current_date = future_dates[i-1]
+                            temp['dayofweek'] = current_date.dayofweek
+                            temp['quarter'] = current_date.quarter
+                            temp['month'] = current_date.month
+                            temp['year'] = current_date.year
+                            temp['dayofyear'] = current_date.dayofyear
+                            temp['dayofmonth'] = current_date.day
+                            temp['weekofyear'] = current_date.isocalendar().week
+
+                            
+                            # Update lag features
+                            if i >= 1:
+                                temp['sales_lag1'] = future_df.iloc[i-1][target]
+                            if i >= 7:
+                                temp['sales_lag7'] = future_df.iloc[i-7][target]
+                            if i >= 30:
+                                temp['sales_lag30'] = future_df.iloc[i-30][target]
+                            if i >= 365:
+                                temp['sales_lag365'] = future_df.iloc[i-365][target]
+
+
+                                
+                            # # Update rolling features
+                            # if i >= 7:
+                            #     window = future_df.iloc[max(0,i-7):i][target]
+                            #     temp['sales_rolling_mean7'] = window.mean()
+                            #     temp['sales_rolling_std7'] = window.std()
+                            
+                            # Make prediction (now with proper feature names)
+                            temp[target] = model.predict(temp)[0]
+                            
+                            # Store prediction
+                            future_df.loc[i] = temp.iloc[0]
+                            future_df.index = [last_date] + list(future_dates[:i])
+                        
+                        return future_df.iloc[1:]
+                    
+                    # Get the last known data point (ensuring we have all features)
+                    last_known = df[features + [target]].iloc[-1].copy()
+
+                    # Generate future forecasts
+                    future_forecast = forecast_future(
+                        model=model,
+                        last_known_data=last_known,
+                        features=features,
+                        target=target,
+                        future_steps=1096
+                    )
+
+                    # Create figure explicitly
+                    fig, ax = plt.subplots(figsize=(20, 5))
+
+
+                    # Plot results
+                    ax.plot(df.index, df[target], label='Historical Data')
+                    ax.plot(test.index, test['prediction'], 'g.', label='Test Predictions')
+                    ax.plot(future_forecast.index, future_forecast[target], 'r--', label='Future Forecast')
+                    
+                    # Format plot
+                    # ax.set_title(f"{input.PredictedSourceChioce()} Energy Production Forecast")
+                    ax.legend()
+                    ax.grid(True)
+                    
+                    # Return the figure
+                    return fig
+                
+                except Exception as e:
+                    fig, ax = plt.subplots()
+                    ax.text(0.5, 0.5, 
+                            "No data available\nPlease select valid dates", 
+                            ha='center', 
+                            va='center')
+                    ax.set_axis_off()
+                    return fig
