@@ -9,7 +9,6 @@ from sklearn.model_selection import train_test_split
 from xgboost import XGBRegressor
 
 import requests
-import time
 from datetime import date
 from functools import partial
 from shiny.express import ui, input, render
