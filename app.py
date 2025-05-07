@@ -32,6 +32,7 @@ with ui.nav_panel("Power Sources"):
     iou = pd.read_csv("data/iou_zipcodes_2023.csv")
     noniou = pd.read_csv("data/non_iou_zipcodes_2023.csv")
     zip = pd.concat([noniou, iou], ignore_index=True)
+    zip.drop_duplicates(subset=['zip', 'utility_name'], keep='first', inplace=True)
     zip['zip'] = zip['zip'].astype(str)
 
     # EIA861 is the form from which the following excel file comes from, containing both 'eiaid' and 'BA ID' needed for merging
