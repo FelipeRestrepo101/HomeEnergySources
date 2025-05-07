@@ -361,7 +361,7 @@ with ui.nav_panel("Power Sources"):
 
 
             
-            @render.plot(width= 800, height=800, alt="A Seaborn histogram on penguin body mass in grams.")  
+            @render.plot()  
             def single_power_source_plot():  
                 try:
                     df = fetch_power_source_data()
@@ -391,7 +391,7 @@ with ui.nav_panel("Power Sources"):
       
     #Average Daily Demand by balancing authority
     with ui.card(): 
-        @render.plot(width= 800, height=800, alt="A Seaborn histogram on penguin body mass in grams.")  
+        @render.plot()  
         def demand_plot():  
             try: 
                 df = fetch_demand_data()
@@ -415,7 +415,7 @@ with ui.nav_panel("Power Sources"):
                 return fig
             
     with ui.card(): 
-        @render.plot(width= 800, height=800, alt="A Seaborn histogram on penguin body mass in grams.")  
+        @render.plot()
         def hourly_demand_plot():  
             try: 
                 df = fetch_hourly_demand_data()
@@ -463,7 +463,7 @@ with ui.nav_panel("Power Sources"):
                     )  
 
             
-            @render.plot(width= 800, height=800, alt="A Seaborn histogram on penguin body mass in grams.")  
+            @render.plot()#idth= 800, height=800, alt="A Seaborn histogram on penguin body mass in grams.")  
             def solar_comprehensive():  
                 try:
                     df = fetch_all_PowerData()
@@ -515,7 +515,7 @@ with ui.nav_panel("Power Sources"):
                     model.fit(
                     x_train, y_train,
                     eval_set=[(x_train, y_train), (x_test, y_test)],
-                    verbose=1000
+                    verbose=False
                     )
 
                     test = test.copy() 
@@ -622,7 +622,7 @@ with ui.nav_panel("Power Sources"):
                     ax.set_axis_off()
                     return fig
                 
-            @render.plot(width= 800, height=800, alt="A Seaborn histogram on penguin body mass in grams.")  
+            @render.plot()  
             def demand_comprehensive():  
                 try:
                     df = fetch_all_DemandData()
@@ -673,7 +673,7 @@ with ui.nav_panel("Power Sources"):
                     model.fit(
                     x_train, y_train,
                     eval_set=[(x_train, y_train), (x_test, y_test)],
-                    verbose=1000
+                    verbose=False
                     )
 
                     test = test.copy() 
