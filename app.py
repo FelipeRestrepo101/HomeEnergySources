@@ -149,8 +149,8 @@ with ui.nav_panel("Power Sources"):
         
 
 
-    @reactive.calc
-    def fetch_all_PowerData():
+    @reactive.extended_task
+    async def fetch_all_PowerData():
         try:
             df_list = []
             year = 2019
@@ -462,11 +462,14 @@ with ui.nav_panel("Power Sources"):
                     "Petroleum": "Petroleum", "Nuclear": "Nuclear", "Natural Gas": "Natural Gas" },  
                     )  
 
+            @reactive.effect
+            def _():
+                fetch_all_PowerData.invoke()
             
-            @render.plot()#idth= 800, height=800, alt="A Seaborn histogram on penguin body mass in grams.")  
+            @render.plot()
             def solar_comprehensive():  
                 try:
-                    df = fetch_all_PowerData()
+                    df = fetch_all_PowerData.result()
                     df = df.query(f'`type-name` == "{input.PredictedSourceChoice()}"').copy()[['value']].copy()
                 
                     df['dayofweek'] = df.index.dayofweek
@@ -622,160 +625,160 @@ with ui.nav_panel("Power Sources"):
                     ax.set_axis_off()
                     return fig
                 
-            @render.plot()  
-            def demand_comprehensive():  
-                try:
-                    df = fetch_all_DemandData()
+            # @render.plot()  
+            # def demand_comprehensive():  
+            #     try:
+            #         df = fetch_all_DemandData()
                 
-                    df['dayofweek'] = df.index.dayofweek
-                    df['quarter'] = df.index.quarter
-                    df['month'] = df.index.month
-                    df['year'] = df.index.year
-                    df['dayofyear'] = df.index.dayofyear
-                    df['dayofmonth'] = df.index.day
-                    df['weekofyear'] = df.index.isocalendar().week
+            #         df['dayofweek'] = df.index.dayofweek
+            #         df['quarter'] = df.index.quarter
+            #         df['month'] = df.index.month
+            #         df['year'] = df.index.year
+            #         df['dayofyear'] = df.index.dayofyear
+            #         df['dayofmonth'] = df.index.day
+            #         df['weekofyear'] = df.index.isocalendar().week
 
-                    # Lag features
-                    df['sales_lag1'] = df['value'].shift(1)
-                    df['sales_lag7'] = df['value'].shift(7)
-                    df['sales_lag30'] = df['value'].shift(30)
-                    df['sales_lag365'] = df['value'].shift(365)
+            #         # Lag features
+            #         df['sales_lag1'] = df['value'].shift(1)
+            #         df['sales_lag7'] = df['value'].shift(7)
+            #         df['sales_lag30'] = df['value'].shift(30)
+            #         df['sales_lag365'] = df['value'].shift(365)
 
-                    # Rolling window features
-                    df['sales_rolling_mean7'] = df['value'].shift(1).rolling(window=7).mean()
-                    df['sales_rolling_std7'] = df['value'].shift(1).rolling(window=7).std()
+            #         # Rolling window features
+            #         df['sales_rolling_mean7'] = df['value'].shift(1).rolling(window=7).mean()
+            #         df['sales_rolling_std7'] = df['value'].shift(1).rolling(window=7).std()
 
-                    test_size = 5
-                    train = df.iloc[:-test_size]
-                    test = df.iloc[-test_size:]
+            #         test_size = 5
+            #         train = df.iloc[:-test_size]
+            #         test = df.iloc[-test_size:]
 
-                    features = ['dayofweek', 'quarter', 'month', 'year', 
-                    'dayofyear', 'dayofmonth', 'weekofyear',
-                    'sales_lag1', 'sales_lag7', 'sales_lag30', 'sales_lag365',
-                    'sales_rolling_mean7', 'sales_rolling_std7']
-                    target = 'value'
+            #         features = ['dayofweek', 'quarter', 'month', 'year', 
+            #         'dayofyear', 'dayofmonth', 'weekofyear',
+            #         'sales_lag1', 'sales_lag7', 'sales_lag30', 'sales_lag365',
+            #         'sales_rolling_mean7', 'sales_rolling_std7']
+            #         target = 'value'
 
-                    x_train = train[features]
-                    y_train = train[target]
-                    x_test = test[features]
-                    y_test = test[target]
+            #         x_train = train[features]
+            #         y_train = train[target]
+            #         x_test = test[features]
+            #         y_test = test[target]
 
-                    model = XGBRegressor(
-                    n_estimators=100,
-                    learning_rate=0.1,
-                    max_depth=3,
-                    subsample=0.8,
-                    colsample_bytree=0.8,
-                    early_stopping_rounds=50,
-                    random_state=42
-                    )
+            #         model = XGBRegressor(
+            #         n_estimators=100,
+            #         learning_rate=0.1,
+            #         max_depth=3,
+            #         subsample=0.8,
+            #         colsample_bytree=0.8,
+            #         early_stopping_rounds=50,
+            #         random_state=42
+            #         )
 
-                    model.fit(
-                    x_train, y_train,
-                    eval_set=[(x_train, y_train), (x_test, y_test)],
-                    verbose=False
-                    )
+            #         model.fit(
+            #         x_train, y_train,
+            #         eval_set=[(x_train, y_train), (x_test, y_test)],
+            #         verbose=False
+            #         )
 
-                    test = test.copy() 
-                    test['prediction']= model.predict(x_test)
-                    df = df.merge(test[['prediction']], how='left', left_index=True, right_index=True)
+            #         test = test.copy() 
+            #         test['prediction']= model.predict(x_test)
+            #         df = df.merge(test[['prediction']], how='left', left_index=True, right_index=True)
 
                     
 
-                    def forecast_future(model, last_known_data, features, target, future_steps):
-                        """
-                        Improved version with proper feature name handling
-                        """
-                        # Create DataFrame with proper feature names
-                        future_df = pd.DataFrame(columns=features + [target])
-                        future_df.loc[0] = last_known_data
+            #         def forecast_future(model, last_known_data, features, target, future_steps):
+            #             """
+            #             Improved version with proper feature name handling
+            #             """
+            #             # Create DataFrame with proper feature names
+            #             future_df = pd.DataFrame(columns=features + [target])
+            #             future_df.loc[0] = last_known_data
                         
-                        # Generate future dates
-                        last_date = last_known_data.name
-                        future_dates = pd.date_range(
-                            start=last_date + pd.Timedelta(days=1),
-                            periods=future_steps
-                        )
+            #             # Generate future dates
+            #             last_date = last_known_data.name
+            #             future_dates = pd.date_range(
+            #                 start=last_date + pd.Timedelta(days=1),
+            #                 periods=future_steps
+            #             )
                         
-                        # Recursive forecasting
-                        for i in range(1, future_steps + 1):
-                            temp = future_df.iloc[i-1][features].copy().to_frame().T
+            #             # Recursive forecasting
+            #             for i in range(1, future_steps + 1):
+            #                 temp = future_df.iloc[i-1][features].copy().to_frame().T
                             
-                            # Ensure we maintain feature names
-                            temp = temp[features]  # Keep only features in correct order
+            #                 # Ensure we maintain feature names
+            #                 temp = temp[features]  # Keep only features in correct order
                             
-                            # Update temporal features
-                            current_date = future_dates[i-1]
-                            temp['dayofweek'] = current_date.dayofweek
-                            temp['quarter'] = current_date.quarter
-                            temp['month'] = current_date.month
-                            temp['year'] = current_date.year
-                            temp['dayofyear'] = current_date.dayofyear
-                            temp['dayofmonth'] = current_date.day
-                            temp['weekofyear'] = current_date.isocalendar().week
+            #                 # Update temporal features
+            #                 current_date = future_dates[i-1]
+            #                 temp['dayofweek'] = current_date.dayofweek
+            #                 temp['quarter'] = current_date.quarter
+            #                 temp['month'] = current_date.month
+            #                 temp['year'] = current_date.year
+            #                 temp['dayofyear'] = current_date.dayofyear
+            #                 temp['dayofmonth'] = current_date.day
+            #                 temp['weekofyear'] = current_date.isocalendar().week
 
                             
-                            # Update lag features
-                            if i >= 1:
-                                temp['sales_lag1'] = future_df.iloc[i-1][target]
-                            if i >= 7:
-                                temp['sales_lag7'] = future_df.iloc[i-7][target]
-                            if i >= 30:
-                                temp['sales_lag30'] = future_df.iloc[i-30][target]
-                            if i >= 365:
-                                temp['sales_lag365'] = future_df.iloc[i-365][target]
+            #                 # Update lag features
+            #                 if i >= 1:
+            #                     temp['sales_lag1'] = future_df.iloc[i-1][target]
+            #                 if i >= 7:
+            #                     temp['sales_lag7'] = future_df.iloc[i-7][target]
+            #                 if i >= 30:
+            #                     temp['sales_lag30'] = future_df.iloc[i-30][target]
+            #                 if i >= 365:
+            #                     temp['sales_lag365'] = future_df.iloc[i-365][target]
 
 
                                 
-                            # # Update rolling features
-                            # if i >= 7:
-                            #     window = future_df.iloc[max(0,i-7):i][target]
-                            #     temp['sales_rolling_mean7'] = window.mean()
-                            #     temp['sales_rolling_std7'] = window.std()
+            #                 # # Update rolling features
+            #                 # if i >= 7:
+            #                 #     window = future_df.iloc[max(0,i-7):i][target]
+            #                 #     temp['sales_rolling_mean7'] = window.mean()
+            #                 #     temp['sales_rolling_std7'] = window.std()
                             
-                            # Make prediction (now with proper feature names)
-                            temp[target] = model.predict(temp)[0]
+            #                 # Make prediction (now with proper feature names)
+            #                 temp[target] = model.predict(temp)[0]
                             
-                            # Store prediction
-                            future_df.loc[i] = temp.iloc[0]
-                            future_df.index = [last_date] + list(future_dates[:i])
+            #                 # Store prediction
+            #                 future_df.loc[i] = temp.iloc[0]
+            #                 future_df.index = [last_date] + list(future_dates[:i])
                         
-                        return future_df.iloc[1:]
+            #             return future_df.iloc[1:]
                     
-                    # Get the last known data point (ensuring we have all features)
-                    last_known = df[features + [target]].iloc[-1].copy()
+            #         # Get the last known data point (ensuring we have all features)
+            #         last_known = df[features + [target]].iloc[-1].copy()
 
-                    # Generate future forecasts
-                    future_forecast = forecast_future(
-                        model=model,
-                        last_known_data=last_known,
-                        features=features,
-                        target=target,
-                        future_steps=1096
-                    )
+            #         # Generate future forecasts
+            #         future_forecast = forecast_future(
+            #             model=model,
+            #             last_known_data=last_known,
+            #             features=features,
+            #             target=target,
+            #             future_steps=1096
+            #         )
 
-                    # Create figure explicitly
-                    fig, ax = plt.subplots(figsize=(20, 5))
+            #         # Create figure explicitly
+            #         fig, ax = plt.subplots(figsize=(20, 5))
 
 
-                    # Plot results
-                    ax.plot(df.index, df[target], label='Historical Data')
-                    ax.plot(test.index, test['prediction'], 'g.', label='Test Predictions')
-                    ax.plot(future_forecast.index, future_forecast[target], 'r--', label='Future Forecast')
+            #         # Plot results
+            #         ax.plot(df.index, df[target], label='Historical Data')
+            #         ax.plot(test.index, test['prediction'], 'g.', label='Test Predictions')
+            #         ax.plot(future_forecast.index, future_forecast[target], 'r--', label='Future Forecast')
                     
-                    # Format plot
-                    # ax.set_title(f"{input.PredictedSourceChioce()} Energy Production Forecast")
-                    ax.legend()
-                    ax.grid(True)
+            #         # Format plot
+            #         # ax.set_title(f"{input.PredictedSourceChioce()} Energy Production Forecast")
+            #         ax.legend()
+            #         ax.grid(True)
                     
-                    # Return the figure
-                    return fig
+            #         # Return the figure
+            #         return fig
                 
-                except Exception as e:
-                    fig, ax = plt.subplots()
-                    ax.text(0.5, 0.5, 
-                            "No data available\nPlease select valid dates", 
-                            ha='center', 
-                            va='center')
-                    ax.set_axis_off()
-                    return fig
+            #     except Exception as e:
+            #         fig, ax = plt.subplots()
+            #         ax.text(0.5, 0.5, 
+            #                 "No data available\nPlease select valid dates", 
+            #                 ha='center', 
+            #                 va='center')
+            #         ax.set_axis_off()
+            #         return fig
