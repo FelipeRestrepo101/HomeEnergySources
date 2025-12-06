@@ -33,3 +33,4 @@ ideas:
 For example, have the PowerSources page use zip code to identify utility provider and provide PowerSource, PowerDemand insights. 
 Then have HomeEnergyConsumption page use zip code to identify state, and provide average usage statistics on appliances. 
 - Use replace current input validation methods by using shiny-validate module
+- add energy totals in MWh's at the bottom of the source numbers chart to the right of the graph.
